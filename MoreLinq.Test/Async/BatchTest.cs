@@ -45,28 +45,24 @@ namespace MoreLinq.Test.Async
         public async Task BatchEvenlyDistributedAsyncSequence()
         {
             var result = new[] {1, 2, 3, 4, 5, 6, 7, 8, 9}.ToAsyncEnumerable().Batch(3);
-            var enumerator = result.GetAsyncEnumerator();
-            await enumerator.MoveNextAsync();
-            Assert.That(enumerator.Current, Is.EquivalentTo(new[] {1, 2, 3}));
-            await enumerator.MoveNextAsync();
-            Assert.That(enumerator.Current, Is.EquivalentTo(new[] {4, 5, 6}));
-            await enumerator.MoveNextAsync();
-            Assert.That(enumerator.Current, Is.EquivalentTo(new[] {7, 8, 9}));
-            await enumerator.DisposeAsync();
+
+            await using var reader = result.Read();
+            (await reader.ReadAsync()).AssertSequenceEqual(new[] {1, 2, 3});
+            (await reader.ReadAsync()).AssertSequenceEqual(new[] {4, 5, 6});
+            (await reader.ReadAsync()).AssertSequenceEqual(new[] {7, 8, 9});
+            await reader.ReadEndAsync();
         }
 
         [Test]
         public async Task BatchUnevenlyDivisibleAsyncSequence()
         {
             var result = new[] {1, 2, 3, 4, 5, 6, 7, 8, 9}.ToAsyncEnumerable().Batch(4);
-            var enumerator = result.GetAsyncEnumerator();
-            await enumerator.MoveNextAsync();
-            Assert.That(enumerator.Current, Is.EquivalentTo(new[] {1, 2, 3, 4}));
-            await enumerator.MoveNextAsync();
-            Assert.That(enumerator.Current, Is.EquivalentTo(new[] {5, 6, 7, 8}));
-            await enumerator.MoveNextAsync();
-            Assert.That(enumerator.Current, Is.EquivalentTo(new[] {9}));
-            await enumerator.DisposeAsync();
+
+            await using var reader = result.Read();
+            (await reader.ReadAsync()).AssertSequenceEqual(new[] {1, 2, 3, 4});
+            (await reader.ReadAsync()).AssertSequenceEqual(new[] {5, 6, 7, 8});
+            (await reader.ReadAsync()).AssertSequenceEqual(new[] {9});
+            await reader.ReadEndAsync();
         }
 
         [Test]
@@ -74,14 +70,12 @@ namespace MoreLinq.Test.Async
         {
             var result = new[] {1, 2, 3, 4, 5, 6, 7, 8, 9}.ToAsyncEnumerable()
                 .Batch(4, batch => batch.Sum());
-            var enumerator = result.GetAsyncEnumerator();
-            await enumerator.MoveNextAsync();
-            Assert.That(enumerator.Current, Is.EqualTo(10));
-            await enumerator.MoveNextAsync();
-            Assert.That(enumerator.Current, Is.EqualTo(26));
-            await enumerator.MoveNextAsync();
-            Assert.That(enumerator.Current, Is.EqualTo(9));
-            await enumerator.DisposeAsync();
+
+            await using var reader = result.Read();
+            Assert.That(await reader.ReadAsync(), Is.EqualTo(10));
+            Assert.That(await reader.ReadAsync(), Is.EqualTo(26));
+            Assert.That(await reader.ReadAsync(), Is.EqualTo(9));
+            await reader.ReadEndAsync();
         }
     }
 }
