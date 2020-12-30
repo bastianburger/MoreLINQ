@@ -19,6 +19,8 @@
 
 namespace MoreLinq.Test.Async
 {
+    using System;
+    using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
     using NUnit.Framework;
@@ -79,9 +81,46 @@ namespace MoreLinq.Test.Async
         }
 
         [Test]
+        public async Task BatchSequenceYieldsListsOfBatches()
+        {
+            var result = new[] {1, 2, 3}.ToAsyncEnumerable().Batch(2);
+            await using var reader = result.Read();
+            Assert.That(await reader.ReadAsync(), Is.InstanceOf(typeof(IList<int>)));
+            Assert.That(await reader.ReadAsync(), Is.InstanceOf(typeof(IList<int>)));
+            await reader.ReadEndAsync();
+        }
+
+        [Test]
         public void BatchIsLazy()
         {
             new BreakingAsyncSequence<object>().Batch(1);
         }
+
+        [Test]
+        public async Task BatchSequenceSmallerThanBinSize()
+        {
+            var result = new[] {1, 2, 3}.ToAsyncEnumerable().Batch(5);
+            await using var reader = result.Read();
+            (await reader.ReadAsync()).AssertSequenceEqual(new[] {1, 2, 3});
+            await reader.ReadEndAsync();
+        }
+
+        [TestCaseSource(nameof(TestAsyncEnumerable))]
+        public async Task TestBatchPreservesElements(IAsyncEnumerable<int> enumerable,
+            int expectedCount)
+        {
+            var result = enumerable.Batch(4);
+            var actualCount = await result.SelectMany(en => en.ToAsyncEnumerable()).CountAsync();
+            Assert.That(expectedCount, Is.EqualTo(actualCount));
+        }
+
+        private static IEnumerable<TestCaseData> TestAsyncEnumerable() =>
+            new[]
+            {
+                Array.Empty<int>(),
+                new[] {1, 2, 3},
+                new[] {1, 2, 3, 4},
+                new[] {1, 2, 3, 4, 5}
+            }.Select(en => new TestCaseData(en.ToAsyncEnumerable(), en.Length));
     }
 }
