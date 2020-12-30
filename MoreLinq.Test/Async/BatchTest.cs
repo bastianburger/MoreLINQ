@@ -77,5 +77,11 @@ namespace MoreLinq.Test.Async
             Assert.That(await reader.ReadAsync(), Is.EqualTo(9));
             await reader.ReadEndAsync();
         }
+
+        [Test]
+        public void BatchIsLazy()
+        {
+            new BreakingAsyncSequence<object>().Batch(1);
+        }
     }
 }
