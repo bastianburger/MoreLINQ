@@ -23,6 +23,9 @@ namespace MoreLinq.Experimental.Async
 {
     using System;
     using System.Collections.Generic;
+    using System.Runtime.CompilerServices;
+    using System.Threading;
+    using System.Threading.Tasks;
 
     static partial class MoreAsyncEnumerable
     {
@@ -59,13 +62,17 @@ namespace MoreLinq.Experimental.Async
 
         private static async IAsyncEnumerable<TResult> BatchInternal<TSource, TResult>(
             this IAsyncEnumerable<TSource> source, int size,
-            Func<IEnumerable<TSource>, TResult> resultSelector)
+            Func<IEnumerable<TSource>, TResult> resultSelector,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             TSource[]? bucket = null;
             var count = 0;
 
-            await foreach (var item in source)
+            await foreach (var item in source.WithCancellation(cancellationToken)
+                .ConfigureAwait(false))
             {
+                // what do we need to do with cancellation, if the source does not support it? should we invoke
+                // cancellationToken.ThrowIfCancellationRequested(); here to still cancel the operation?
                 bucket ??= new TSource[size];
                 bucket[count++] = item;
 

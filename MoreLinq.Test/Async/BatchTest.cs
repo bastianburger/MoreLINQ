@@ -22,6 +22,8 @@ namespace MoreLinq.Test.Async
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Runtime.CompilerServices;
+    using System.Threading;
     using System.Threading.Tasks;
     using NUnit.Framework;
     using MoreLinq.Experimental.Async;
@@ -112,6 +114,30 @@ namespace MoreLinq.Test.Async
             var result = enumerable.Batch(4);
             var actualCount = await result.SelectMany(en => en.ToAsyncEnumerable()).CountAsync();
             Assert.That(expectedCount, Is.EqualTo(actualCount));
+        }
+
+        [Test]
+        public async Task BatchShouldCancel()
+        {
+            var cts = new CancellationTokenSource();
+            var batchedSequence = AsyncSequence().Batch(1).WithCancellation(cts.Token);
+            var enumerator = batchedSequence.GetAsyncEnumerator();
+            await enumerator.MoveNextAsync();
+            enumerator.Current.AssertSequenceEqual(new[] {0});
+            cts.Cancel();
+            Assert.That(async () => await enumerator.MoveNextAsync(),
+                Throws.InstanceOf<OperationCanceledException>());
+        }
+
+        private static async IAsyncEnumerable<int> AsyncSequence(int delay = 50,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            for (var i = 0;; ++i)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return i++;
+                await Task.Delay(delay, cancellationToken);
+            }
         }
 
         private static IEnumerable<TestCaseData> TestAsyncEnumerable() =>
