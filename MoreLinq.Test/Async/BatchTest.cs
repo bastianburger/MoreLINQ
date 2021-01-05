@@ -50,11 +50,11 @@ namespace MoreLinq.Test.Async
         {
             var result = new[] {1, 2, 3, 4, 5, 6, 7, 8, 9}.ToAsyncEnumerable().Batch(3);
 
-            await using var reader = result.Read();
-            (await reader.ReadAsync()).AssertSequenceEqual(new[] {1, 2, 3});
-            (await reader.ReadAsync()).AssertSequenceEqual(new[] {4, 5, 6});
-            (await reader.ReadAsync()).AssertSequenceEqual(new[] {7, 8, 9});
-            await reader.ReadEndAsync();
+            var e = result.GetAsyncEnumerator();
+            await e.HasNextAsync(actual => new[] {1, 2, 3}.AssertSequenceEqual(actual));
+            await e.HasNextAsync(actual => new[] {4, 5, 6}.AssertSequenceEqual(actual));
+            await e.HasNextAsync(actual => new[] {7, 8, 9}.AssertSequenceEqual(actual));
+            await e.NoNextAsync();
         }
 
         [Test]
@@ -62,11 +62,11 @@ namespace MoreLinq.Test.Async
         {
             var result = new[] {1, 2, 3, 4, 5, 6, 7, 8, 9}.ToAsyncEnumerable().Batch(4);
 
-            await using var reader = result.Read();
-            (await reader.ReadAsync()).AssertSequenceEqual(new[] {1, 2, 3, 4});
-            (await reader.ReadAsync()).AssertSequenceEqual(new[] {5, 6, 7, 8});
-            (await reader.ReadAsync()).AssertSequenceEqual(new[] {9});
-            await reader.ReadEndAsync();
+            var e = result.GetAsyncEnumerator();
+            await e.HasNextAsync(actual => new[] {1, 2, 3, 4}.AssertSequenceEqual(actual));
+            await e.HasNextAsync(actual => new[] {5, 6, 7, 8}.AssertSequenceEqual(actual));
+            await e.HasNextAsync(actual => new[] {9}.AssertSequenceEqual(actual));
+            await e.NoNextAsync();
         }
 
         [Test]
@@ -75,21 +75,22 @@ namespace MoreLinq.Test.Async
             var result = new[] {1, 2, 3, 4, 5, 6, 7, 8, 9}.ToAsyncEnumerable()
                 .Batch(4, batch => batch.Sum());
 
-            await using var reader = result.Read();
-            Assert.That(await reader.ReadAsync(), Is.EqualTo(10));
-            Assert.That(await reader.ReadAsync(), Is.EqualTo(26));
-            Assert.That(await reader.ReadAsync(), Is.EqualTo(9));
-            await reader.ReadEndAsync();
+            var e = result.GetAsyncEnumerator();
+            await e.HasNextAsync(10);
+            await e.HasNextAsync(26);
+            await e.HasNextAsync(9);
+            await e.NoNextAsync();
         }
 
         [Test]
         public async Task BatchSequenceYieldsListsOfBatches()
         {
             var result = new[] {1, 2, 3}.ToAsyncEnumerable().Batch(2);
-            await using var reader = result.Read();
-            Assert.That(await reader.ReadAsync(), Is.InstanceOf(typeof(IList<int>)));
-            Assert.That(await reader.ReadAsync(), Is.InstanceOf(typeof(IList<int>)));
-            await reader.ReadEndAsync();
+
+            var e = result.GetAsyncEnumerator();
+            await e.HasNextAsync(actual => Assert.That(actual, Is.InstanceOf(typeof(IList<int>))));
+            await e.HasNextAsync(actual => Assert.That(actual, Is.InstanceOf(typeof(IList<int>))));
+            await e.NoNextAsync();
         }
 
         [Test]
@@ -102,9 +103,10 @@ namespace MoreLinq.Test.Async
         public async Task BatchSequenceSmallerThanBinSize()
         {
             var result = new[] {1, 2, 3}.ToAsyncEnumerable().Batch(5);
-            await using var reader = result.Read();
-            (await reader.ReadAsync()).AssertSequenceEqual(new[] {1, 2, 3});
-            await reader.ReadEndAsync();
+
+            var e = result.GetAsyncEnumerator();
+            await e.HasNextAsync(actual => actual.AssertSequenceEqual(new[] {1, 2, 3}));
+            await e.NoNextAsync();
         }
 
         [TestCaseSource(nameof(TestAsyncEnumerable))]
@@ -120,16 +122,15 @@ namespace MoreLinq.Test.Async
         public async Task BatchShouldCancel()
         {
             var cts = new CancellationTokenSource();
-            var batchedSequence = AsyncSequence().Batch(1).WithCancellation(cts.Token);
-            var enumerator = batchedSequence.GetAsyncEnumerator();
-            await enumerator.MoveNextAsync();
-            enumerator.Current.AssertSequenceEqual(new[] {0});
+            var batchedSequence = Interval().Batch(1).WithCancellation(cts.Token);
+            var e = batchedSequence.GetAsyncEnumerator();
+            await e.HasNextAsync(actual => actual.AssertSequenceEqual(new[] {0}));
             cts.Cancel();
-            Assert.That(async () => await enumerator.MoveNextAsync(),
+            Assert.That(async () => await e.MoveNextAsync(),
                 Throws.InstanceOf<OperationCanceledException>());
         }
 
-        private static async IAsyncEnumerable<int> AsyncSequence(int delay = 50,
+        private static async IAsyncEnumerable<int> Interval(int delay = 50,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             for (var i = 0;; ++i)

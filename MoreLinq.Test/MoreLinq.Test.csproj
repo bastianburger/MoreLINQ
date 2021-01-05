@@ -85,9 +85,9 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(IncludeAsyncStreams)' == 'true'">
-    <Compile Include="Async\AsyncSequenceReader.cs" />
     <Compile Include="Async\BatchTest.cs" />
     <Compile Include="Async\BreakingAsyncSequence.cs" />
+    <Compile Include="Async\AsyncEnumeratorExtensions.cs" />
   </ItemGroup>
 
   <ItemGroup>
