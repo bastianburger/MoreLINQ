@@ -1,4 +1,4 @@
-﻿#region License and Terms
+#region License and Terms
 
 // MoreLINQ - Extensions to LINQ to Objects
 // Copyright (c) 2020 Atif Aziz. All rights reserved.
@@ -27,6 +27,7 @@ namespace MoreLinq.Test.Async
     using System.Threading.Tasks;
     using NUnit.Framework;
     using MoreLinq.Experimental.Async;
+    using System.Diagnostics;
 
     [TestFixture]
     public class BatchTest
@@ -129,6 +130,22 @@ namespace MoreLinq.Test.Async
             Assert.That(async () => await e.MoveNextAsync(),
                 Throws.InstanceOf<OperationCanceledException>());
         }
+
+        [Test]
+        public void BatchPerfTestOne()
+        {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+            for (var i = 0; i < 10000; ++i)
+            {
+                SourceOne().Batch(10).ToList();
+            }
+            stopwatch.Stop();
+            Assert.That(stopwatch.Elapsed.TotalSeconds, Is.EqualTo(10));
+        }
+
+        public IEnumerable<int> SourceOne(int size = 10_000) =>
+            Enumerable.Range(0, size).ToList();
 
         private static async IAsyncEnumerable<int> Interval(int delay = 50,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)

@@ -18,6 +18,7 @@
 namespace MoreLinq.Test
 {
     using System.Collections.Generic;
+    using System.Diagnostics;
     using NUnit.Framework;
 
     [TestFixture]
@@ -126,5 +127,21 @@ namespace MoreLinq.Test
             var batches = Enumerable.Empty<int>().ToSourceKind(kind).Batch(100);
             Assert.That(batches, Is.Empty);
         }
+
+        [Test]
+        public void BatchPerfTestOne()
+        {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+            for (var i = 0; i < 10000; ++i)
+            {
+                SourceOne().Batch(10).ToList();
+            }
+            stopwatch.Stop();
+            Assert.That(stopwatch.Elapsed.TotalSeconds, Is.EqualTo(10));
+        }
+
+        public IEnumerable<int> SourceOne(int size = 10_000) =>
+            Enumerable.Range(0, size);
     }
 }
